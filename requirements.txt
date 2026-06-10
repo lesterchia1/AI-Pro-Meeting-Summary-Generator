@@ -1,0 +1,11 @@
+streamlit>=1.35.0
+faster-whisper==1.2.1
+groq==1.2.0
+requests>=2.31.0
+tenacity>=8.2.0
+reportlab>=4.0.0
+python-docx>=1.1.0
+torch>=2.0.0
+numpy==2.4.6
+pyannote-audio==4.0.4
+ctranslate2>=4.0.0
