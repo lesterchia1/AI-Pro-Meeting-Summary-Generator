@@ -1,5 +1,5 @@
 """
-Pro AI Meeting Minutes Assistant — v4.1 (Streamlit Edition)
+Pro AI Meeting Minutes Assistant — v4.1.2 (Streamlit Edition)
 Conversion of the original Gradio app to Streamlit.
 All features preserved.
 """
