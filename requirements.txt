@@ -21,3 +21,9 @@ torch>=2.0.0
 numpy>=1.24.0,<2.0.0
 pyannote-audio==4.0.4
 ctranslate2>=4.0.0  # optional (faster-whisper will install it anyway)
+
+
+#numpy==2.4.6
+#requests
+#tenacity
+huggingface_hub
