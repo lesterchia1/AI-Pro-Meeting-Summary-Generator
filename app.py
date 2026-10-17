@@ -63,11 +63,11 @@ init_db()
 
 # --- MODEL REGISTRIES ---
 MODEL_MAP = {
-    "Groq: GPT-OSS 120B": "llama-3.3-70b-versatile", # Mapped to high-end Groq backend
-    "Groq: GPT-OSS 20B": "llama-3.1-8b-instant",   # Mapped to fast Groq backend
+    "Groq: GPT-OSS 120B": "llama-3.3-70b-versatile",
+    "Groq: GPT-OSS 20B": "llama-3.1-8b-instant",
     "AI Spore: Sea-Lion v4 27B": "sealion-v4-27b",
     "AI Spore: Sea-Lion v4 32B (Qwen)": "sealion-v4-32b-qwen",
-    "HF: Qwen 3.5 2B": "Qwen/Qwen2.5-Coder-1.5B-Instruct", # Fallback/API compatible
+    "HF: Qwen 3.5 2B": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
     "Local SLM (Ollama)": "local-ollama"
 }
 
@@ -98,7 +98,7 @@ except Exception as e:
 def clean_text(text):
     return re.sub(r'[\*\*|_|=|#|`]', '', text).strip()
 
-def call_llm(model_display_name, prompt, api_keys=None):
+def call_llm(model_display_name, prompt):
     try:
         if model_display_name == "Local SLM (Ollama)":
             url = "http://localhost:11434/api/generate"
@@ -111,7 +111,8 @@ def call_llm(model_display_name, prompt, api_keys=None):
                 
         elif "Groq" in model_display_name:
             from groq import Groq
-            groq_key = api_keys.get("groq") or os.environ.get("GROQ_API_KEY")
+            # Pulling Groq API key securely from Streamlit secrets or environment variables
+            groq_key = st.secrets.get("GROQ_API_KEY") if "GROQ_API_KEY" in st.secrets else os.environ.get("GROQ_API_KEY")
             client = Groq(api_key=groq_key)
             model_id = MODEL_MAP.get(model_display_name, "llama-3.3-70b-versatile")
             chat_completion = client.chat.completions.create(
@@ -121,8 +122,7 @@ def call_llm(model_display_name, prompt, api_keys=None):
             return clean_text(chat_completion.choices[0].message.content)
             
         elif "AI Spore" in model_display_name or "HF" in model_display_name:
-            # Generic Hugging Face / AI Singapore Endpoint Integration
-            hf_key = api_keys.get("hf") or os.environ.get("HF_API_KEY")
+            hf_key = st.secrets.get("HF_API_KEY") if "HF_API_KEY" in st.secrets else os.environ.get("HF_API_KEY")
             headers = {"Authorization": f"Bearer {hf_key}"} if hf_key else {}
             api_url = "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-Coder-1.5B-Instruct"
             payload = {"inputs": prompt}
@@ -184,11 +184,6 @@ def send_email_report(sender_email, sender_password, receiver_email, smtp_server
 # --- SIDEBAR CONFIGURATION ---
 st.sidebar.header("⚙️ Configuration & Settings")
 
-api_keys = {
-    "groq": st.sidebar.text_input("Groq API Key", type="password", value=os.environ.get("GROQ_API_KEY", "")),
-    "hf": st.sidebar.text_input("Hugging Face / AI Spore API Key", type="password", value=os.environ.get("HF_API_KEY", ""))
-}
-
 model_choice = st.sidebar.selectbox("Select AI Model", list(MODEL_MAP.keys()), index=0)
 lang_name = st.sidebar.selectbox("Speaking Language", list(LANGUAGE_MAP.keys()), index=0)
 noise_red = st.sidebar.checkbox("Advanced Spectral Noise Reduction & VAD", value=True)
@@ -219,7 +214,6 @@ with tab1:
         st.subheader("1. Input Audio Source")
         audio_file = st.file_uploader("Upload Audio / Video File", type=["wav", "mp3", "m4a", "mp4", "webm"])
         
-        # Optional live recording widget simulation via file uploader or instructions
         st.info("Tip: You can upload voice notes recorded directly from your phone, Zoom, or Teams.")
         
         process_btn = st.button("🚀 Process Meeting & Log to Tracker", type="primary")
@@ -236,7 +230,6 @@ with tab1:
         else:
             with st.spinner("Processing audio, applying noise reduction & transcribing..."):
                 try:
-                    # Save uploaded audio to temp file
                     suffix = os.path.splitext(audio_file.name)[1]
                     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                         tmp.write(audio_file.getvalue())
@@ -245,7 +238,6 @@ with tab1:
                     lang_code = LANGUAGE_MAP.get(lang_name)
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                    # Optional spectral noise reduction preprocess if requested
                     if noise_red:
                         try:
                             import librosa
@@ -257,7 +249,6 @@ with tab1:
                         except Exception as n_err:
                             logging.warning(f"Noise reduction skipped: {n_err}")
 
-                    # Transcribe
                     segments_gen, _ = stt_model.transcribe(
                         audio_path,
                         beam_size=5,
@@ -274,7 +265,6 @@ with tab1:
                     else:
                         full_transcript = "\n".join([f"[{s.start:.1f}s] {s.text.strip()}" for s in seg_list])
                         
-                        # Template ingestion check
                         template_instructions = ""
                         if template_file is not None:
                             tpl_text = extract_template_text(template_file)
@@ -294,9 +284,8 @@ Ensure your output includes:
 Transcript:
 {full_transcript}
 """
-                        final_summary = call_llm(model_choice, master_prompt, api_keys)
+                        final_summary = call_llm(model_choice, master_prompt)
 
-                        # Log action item / meeting into SQLite tracker hub
                         conn = sqlite3.connect(DB_PATH)
                         cursor = conn.cursor()
                         cursor.execute(
@@ -321,7 +310,6 @@ Transcript:
 with tab2:
     st.subheader("📊 Job Hunt Hub & Project Tracker Dashboard")
     
-    # Filtering options
     conn = sqlite3.connect(DB_PATH)
     df_tracker = pd.read_sql_query("SELECT * FROM action_items ORDER BY id DESC", conn)
     conn.close()
@@ -341,7 +329,6 @@ with tab2:
 
         st.dataframe(filtered_df, use_container_width=True)
 
-        # Export CSV button
         csv_data = filtered_df.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 Export Filtered Tracker as CSV",
