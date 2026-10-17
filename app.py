@@ -20,6 +20,36 @@ import streamlit as st
 
 st.set_page_config(page_title="Pro AI Meeting Minutes", page_icon="🎙️", layout="wide")
 
+
+# ----------------------------------------------------------------------------
+# Compatibility shim: faster-whisper <= 1.2.x calls av.open(..., metadata_errors=...),
+# an argument PyAV 19 removed. Drop it when the installed PyAV rejects it.
+# ----------------------------------------------------------------------------
+def _patch_pyav():
+    try:
+        import av
+
+        if getattr(av.open, "_minutes_patched", False):
+            return
+        _orig_open = av.open
+
+        def _open(*args, **kwargs):
+            try:
+                return _orig_open(*args, **kwargs)
+            except TypeError as e:
+                if "metadata_errors" in str(e) and "metadata_errors" in kwargs:
+                    kwargs.pop("metadata_errors")
+                    return _orig_open(*args, **kwargs)
+                raise
+
+        _open._minutes_patched = True
+        av.open = _open
+    except Exception:
+        pass  # PyAV missing/odd: let faster-whisper raise its own clear error
+
+
+_patch_pyav()
+
 # ----------------------------------------------------------------------------
 # Paths & logging
 # ----------------------------------------------------------------------------
