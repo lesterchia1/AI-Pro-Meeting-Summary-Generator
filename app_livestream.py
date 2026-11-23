@@ -1,5 +1,5 @@
 """
-Pro AI Meeting Minutes Assistant — Streamlit Edition (Super Fast & Live)
+Pro AI Meeting Minutes Assistant — Streamlit Edition (Large File Support)
 """
 
 import streamlit as st
@@ -219,8 +219,10 @@ if run_btn:
     if audio_source is None:
         st.error("Please upload an audio/video file or record audio first.")
     else:
+        # Stream and save large files in chunks to protect system memory
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            tmp.write(audio_source.read())
+            for chunk in iter(lambda: audio_source.read(1024 * 1024), b""):
+                tmp.write(chunk)
             temp_audio_path = tmp.name
 
         try:
@@ -281,4 +283,3 @@ else:
         st.info("Raw transcript will appear here after processing.")
     with tab3:
         st.markdown("### Speed Optimizations\n* **STT:** Whisper `base` with INT8 computation\n* **Backend:** Streamlit native components with direct state management")
-
